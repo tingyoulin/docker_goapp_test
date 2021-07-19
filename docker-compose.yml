@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+    webapp:
+        container_name: "goapp"
+        build: .
+        ports:
+            - "8080:8080"
+        links:
+            - redis
+        
+    redis:
+        container_name: "redis"
+        image: redis:alpine
+        command: redis-server --requirepass 0000
+        ports: 
+            - "6379:6379"
