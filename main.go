@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
+	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
+	"google.golang.org/grpc"
+
+	pb "github.com/tingyoulin/docker_goapp_test/pb/mypb"
 )
 
 var rdb = newClient() // declare redis client
 
+/* Rest API
 func setupRouter() *gin.Engine {
 	router := gin.Default()
 	router.Use(recordUserMiddleware())
@@ -50,7 +55,6 @@ func setupRouter() *gin.Engine {
 		}
 		c.String(http.StatusOK, fmt.Sprintf("%s deleted!", userIP))
 	})
-
 	return router
 }
 
@@ -70,9 +74,8 @@ func recordUserMiddleware() gin.HandlerFunc {
 			log.Printf("create: %s\n", userIP)
 			return
 		}
-
 	}
-}
+} */
 
 func newClient() *redis.Client {
 	client := redis.NewClient(&redis.Options{
@@ -90,12 +93,111 @@ func newClient() *redis.Client {
 	return client
 }
 
+// redis 操作
+func incrName(name string) {
+	err := rdb.Incr(name).Err()
+	if err != nil {
+		err := rdb.Set(name, 1, 0).Err()
+
+		if err != nil {
+			log.Println(err)
+		}
+
+		log.Printf("create: %s\n", name)
+		return
+	}
+}
+
+func getName(name string) (visits int) {
+	val, err := rdb.Get(name).Result()
+
+	switch {
+	case err == redis.Nil:
+		log.Println("key does not exist")
+		return
+	case err != nil:
+		log.Println(err)
+		return
+	case val == "":
+		log.Println("value is empty")
+		return
+	}
+
+	visits, err = strconv.Atoi(val)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	return
+}
+
+func deleteName(name string) (res string) {
+	err := rdb.Del(name).Err()
+	if err != nil {
+		res = fmt.Sprint(err)
+		return
+	}
+	res = fmt.Sprintf("%s deleted!", name)
+	return
+}
+
 // type Member struct {
 // 	name   string
 // 	visits string
 // }
 
+type server struct{}
+
+/* 實作 Protocol Buffer 中的 service */
+func (*server) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply, error) {
+	name := req.GetName()
+	incrName(name)
+	res := &pb.PingReply{
+		Result: name + " Pong",
+	}
+	return res, nil
+}
+
+func (*server) Ping1(ctx context.Context, req *pb.PingRequest) (*pb.PingReply, error) {
+	name := req.GetName()
+	incrName(name)
+	res := &pb.PingReply{
+		Result: name + " Pong1",
+	}
+	return res, nil
+}
+
+func (*server) GetVisits(ctx context.Context, req *pb.GetVisitsRequest) (*pb.GetVisitsReply, error) {
+	name := req.GetName()
+
+	res := &pb.GetVisitsReply{
+		Visits: int32(getName(name)),
+	}
+	return res, nil
+}
+
+func (*server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteReply, error) {
+	name := req.GetName()
+	res := &pb.DeleteReply{
+		Result: deleteName(name),
+	}
+	return res, nil
+}
+
 func main() {
-	router := setupRouter()
-	router.Run() // default localhost:8080
+	// router := setupRouter()
+	// router.Run() // default localhost:50051
+
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("failed to listen: %v \n", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterGrpcTestServer(grpcServer, &server{})
+
+	fmt.Println("gRPC Server Starting Listening at :50051")
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }

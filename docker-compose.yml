@@ -1,11 +1,11 @@
 version: "3.8"
 
 services:
-    webapp:
-        container_name: "goapp"
+    grpc_server:
+        container_name: "go_grpc"
         build: .
         ports:
-            - "8080:8080"
+            - "50051:50051"
         links:
             - redis
         
