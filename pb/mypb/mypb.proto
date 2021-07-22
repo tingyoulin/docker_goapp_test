@@ -1,0 +1,39 @@
+syntax = "proto3";  
+
+package mypb;  // for name space
+option go_package = "./;mypb";  // generated code 的 full Go import path
+
+// GrpcTest 定義服務
+service GrpcTest {
+    // Ping, Ping1 會接收 PingRequest IP，最終會回傳 PingReply。
+    rpc Ping (PingRequest) returns (PingReply) {}
+    rpc Ping1 (PingRequest) returns (PingReply) {}
+    rpc GetVisits (GetVisitsRequest) returns (GetVisitsReply) {}
+    rpc Delete (DeleteRequest) returns (DeleteReply) {}
+}
+
+// PingRequest
+message PingRequest {
+    string name = 1;
+}
+
+// PingReply 會回傳給客戶端。
+message PingReply {  
+    string result = 1;
+}
+
+message GetVisitsRequest {
+    string name = 1;
+}
+
+message GetVisitsReply {
+    int32 visits = 1;
+}
+
+message DeleteRequest {
+    string name = 1;
+}
+
+message DeleteReply {
+    string result = 1;
+}
